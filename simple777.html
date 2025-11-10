@@ -1,0 +1,2543 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Система учета по подразделениям</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    
+    <script src="config.js"></script>
+    <script src="auth.js"></script>
+    <script src="gs-api.js"></script>
+    
+    <style>
+        :root {
+            --emerald: #50C878;
+            --dirty-green: #556B2F;
+            --text-white: #FFFFFF;
+        }
+        
+        body {
+            background: linear-gradient(135deg, var(--emerald) 0%, var(--dirty-green) 100%);
+            min-height: 100vh;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            color: var(--text-white);
+        }
+        
+        .navbar-brand, .nav-link, .card, .form-label, .table, .stat-card h5, .stat-card .amount {
+            color: var(--text-white) !important;
+        }
+        
+        .card {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 15px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+        
+        .card-header {
+            background: rgba(255, 255, 255, 0.2);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.3);
+            border-radius: 15px 15px 0 0 !important;
+            font-weight: 600;
+        }
+        
+        .table {
+            color: var(--text-white);
+        }
+        
+        .table th {
+            background: rgba(255, 255, 255, 0.3);
+            border-color: rgba(255, 255, 255, 0.3);
+        }
+        
+        .table td {
+            border-color: rgba(255, 255, 255, 0.2);
+            background: rgba(255, 255, 255, 0.1);
+        }
+        
+        .form-control, .form-select {
+            background: rgba(255, 255, 255, 0.9);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            color: #333;
+        }
+        
+        .form-control:focus, .form-select:focus {
+            background: rgba(255, 255, 255, 1);
+            border-color: var(--emerald);
+            box-shadow: 0 0 0 0.2rem rgba(80, 200, 120, 0.25);
+        }
+        
+        .nav-tabs .nav-link {
+            background: rgba(255, 255, 255, 0.2);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            color: var(--text-white);
+        }
+        
+        .nav-tabs .nav-link.active {
+            background: rgba(255, 255, 255, 0.3);
+            border-color: rgba(255, 255, 255, 0.3);
+            font-weight: bold;
+        }
+        
+        .stat-card {
+            text-align: center;
+            padding: 20px;
+            border-left: 4px solid;
+            background: rgba(255, 255, 255, 0.1);
+        }
+        
+        .stat-card.income { border-left-color: #4CAF50; }
+        .stat-card.expense { border-left-color: #F44336; }
+        .stat-card.balance { border-left-color: #2196F3; }
+        
+        .department-badge {
+            background: rgba(255, 255, 255, 0.2);
+            color: var(--text-white);
+            padding: 5px 10px;
+            border-radius: 15px;
+            font-size: 0.8em;
+            margin: 2px;
+        }
+        
+        .online-table th {
+            background: rgba(255, 255, 255, 0.3);
+            position: sticky;
+            top: 0;
+        }
+        
+        .editable-row {
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        
+        .editable-row:hover {
+            background: rgba(255, 255, 255, 0.2) !important;
+            transform: translateX(5px);
+        }
+        
+        .action-buttons {
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+        
+        .editable-row:hover .action-buttons {
+            opacity: 1;
+        }
+        
+        .modal-content {
+            background: rgba(255, 255, 255, 0.95);
+            color: #333;
+        }
+        
+        .login-container {
+            max-width: 400px;
+            margin: 100px auto;
+            padding: 30px;
+        }
+        
+        .role-badge {
+            font-size: 0.7em;
+            padding: 3px 8px;
+        }
+        
+        .user-info {
+            background: rgba(255, 255, 255, 0.2);
+            padding: 10px 15px;
+            border-radius: 10px;
+            margin-left: 15px;
+        }
+        
+        .audit-log {
+            font-size: 0.8em;
+            color: rgba(255, 255, 255, 0.7);
+        }
+        
+        .report-controls {
+            background: rgba(255, 255, 255, 0.1);
+            padding: 15px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+        }
+        
+        .summary-card {
+            background: rgba(255, 255, 255, 0.15);
+            border-radius: 10px;
+            padding: 15px;
+            margin-bottom: 15px;
+        }
+        
+        .positive { color: #4CAF50; font-weight: bold; }
+        .negative { color: #F44336; font-weight: bold; }
+        .neutral { color: #2196F3; font-weight: bold; }
+        
+        .export-btn {
+            background: rgba(255, 255, 255, 0.2);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            color: white;
+            padding: 8px 15px;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        
+        .export-btn:hover {
+            background: rgba(255, 255, 255, 0.3);
+            transform: translateY(-2px);
+        }
+        
+        .filter-active {
+            background: rgba(76, 175, 80, 0.3) !important;
+            border-color: #4CAF50 !important;
+        }
+        
+        .search-box {
+            position: relative;
+        }
+        
+        .search-box input {
+            padding-right: 40px;
+        }
+        
+        .search-box i {
+            position: absolute;
+            right: 15px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: #6c757d;
+        }
+        
+        .is-invalid {
+            border-color: #dc3545 !important;
+        }
+        
+        .invalid-feedback {
+            display: block;
+        }
+        
+        .loading-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.5);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 9999;
+            display: none;
+        }
+        
+        .loading-spinner {
+            width: 50px;
+            height: 50px;
+            border: 5px solid rgba(255,255,255,0.3);
+            border-radius: 50%;
+            border-top-color: white;
+            animation: spin 1s ease-in-out infinite;
+        }
+        
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        
+        .confirmation-modal .modal-content {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 15px;
+        }
+        
+        .confirmation-modal .modal-header {
+            border-bottom: 1px solid rgba(0,0,0,0.1);
+        }
+        
+        .confirmation-modal .modal-footer {
+            border-top: 1px solid rgba(0,0,0,0.1);
+        }
+        
+        .supplier-select {
+            position: relative;
+        }
+        
+        .supplier-suggestions {
+            position: absolute;
+            top: 100%;
+            left: 0;
+            right: 0;
+            background: white;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            max-height: 200px;
+            overflow-y: auto;
+            z-index: 1000;
+            display: none;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        }
+        
+        .supplier-suggestion {
+            padding: 8px 12px;
+            cursor: pointer;
+            border-bottom: 1px solid #eee;
+            color: #333;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .supplier-suggestion:hover,
+        .supplier-suggestion.active {
+            background: #f5f5f5;
+        }
+        
+        .supplier-suggestion .org {
+            font-size: 0.8em;
+            color: #666;
+        }
+        
+        .supplier-suggestion .name {
+            font-weight: 500;
+        }
+        
+        .admin-summary-table {
+            font-size: 0.9em;
+        }
+        
+        .admin-summary-table th {
+            background: rgba(255, 255, 255, 0.4);
+            text-align: center;
+        }
+        
+        .admin-summary-table td {
+            text-align: right;
+        }
+        
+        .admin-total-row {
+            background: rgba(255, 255, 255, 0.3);
+            font-weight: bold;
+        }
+        
+        .department-total-row {
+            background: rgba(255, 255, 255, 0.25);
+            font-weight: bold;
+        }
+        
+        .supplier-table th {
+            background: rgba(255, 255, 255, 0.4);
+        }
+        
+        .access-code-input {
+            font-family: monospace;
+            letter-spacing: 2px;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <!-- Модальное окно входа -->
+    <div class="modal fade" id="loginModal" tabindex="-1" data-bs-backdrop="static">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Вход в систему</h5>
+                </div>
+                <div class="modal-body">
+                    <form id="login-form">
+                        <div class="mb-3">
+                            <label class="form-label">Подразделение:</label>
+                            <select class="form-select" id="login-department" required>
+                                <option value="">Выберите подразделение</option>
+                                <option value="Общий">Общий (Администратор)</option>
+                                <option value="R1">R1</option>
+                                <option value="R3">R3</option>
+                                <option value="R6">R6</option>
+                                <option value="R7">R7</option>
+                                <option value="R8">R8</option>
+                                <option value="D1">No name 1</option>
+                                <option value="D2">No name 2</option>
+                                <option value="D3">No name 3</option>
+                                <option value="D4">No name 4</option>
+                                <option value="D5">No name 5</option>
+                                <option value="D6">No name 6</option>
+                            </select>
+                            <div class="invalid-feedback">Пожалуйста, выберите подразделение.</div>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Имя пользователя:</label>
+                            <input type="text" class="form-control" id="login-username" required placeholder="Введите ваше имя">
+                            <div class="invalid-feedback">Пожалуйста, введите имя пользователя.</div>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Код доступа к подразделению:</label>
+                            <input type="password" class="form-control access-code-input" id="login-access-code" required placeholder="Введите код доступа">
+                            <div class="invalid-feedback">Пожалуйста, введите код доступа.</div>
+                        </div>
+                        <button type="submit" class="btn btn-primary w-100">Войти</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Основной интерфейс (скрыт до входа) -->
+    <div id="main-interface" style="display: none;">
+        <!-- Навигация -->
+        <nav class="navbar navbar-expand-lg navbar-dark" style="background: rgba(0,0,0,0.3);">
+            <div class="container">
+                <a class="navbar-brand" href="#">
+                    <i class="fas fa-building me-2"></i>Учет по подразделениям
+                </a>
+                <div class="navbar-nav ms-auto">
+                    <div class="user-info">
+                        <span id="current-user-info"></span>
+                        <button class="btn btn-sm btn-outline-light ms-2" onclick="logout()">
+                            <i class="fas fa-sign-out-alt"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </nav>
+
+        <div class="container mt-4">
+            <!-- Статистика -->
+            <div class="row mb-4">
+                <div class="col-md-4">
+                    <div class="card stat-card income">
+                        <div class="card-body">
+                            <i class="fas fa-arrow-down fa-2x mb-3" style="color: #4CAF50;"></i>
+                            <h5>Общий приход</h5>
+                            <h3 class="amount" id="total-income">0</h3>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="card stat-card expense">
+                        <div class="card-body">
+                            <i class="fas fa-arrow-up fa-2x mb-3" style="color: #F44336;"></i>
+                            <h5>Общий расход</h5>
+                            <h3 class="amount" id="total-expense">0</h3>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="card stat-card balance">
+                        <div class="card-body">
+                            <i class="fas fa-balance-scale fa-2x mb-3" style="color: #2196F3;"></i>
+                            <h5>Баланс</h5>
+                            <h3 class="amount" id="balance">0</h3>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Вкладки -->
+            <ul class="nav nav-tabs" id="mainTabs" role="tablist">
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link active" id="operations-tab" data-bs-toggle="tab" data-bs-target="#operations" type="button" role="tab">
+                        <i class="fas fa-exchange-alt me-2"></i>Ввод данных
+                    </button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link" id="department-tab" data-bs-toggle="tab" data-bs-target="#department" type="button" role="tab">
+                        <i class="fas fa-edit me-2"></i>Мои данные
+                    </button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link" id="online-tab" data-bs-toggle="tab" data-bs-target="#online" type="button" role="tab">
+                        <i class="fas fa-chart-line me-2"></i>Расширенный отчет
+                    </button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link" id="suppliers-tab" data-bs-toggle="tab" data-bs-target="#suppliers" type="button" role="tab">
+                        <i class="fas fa-address-book me-2"></i>База поставщиков
+                    </button>
+                </li>
+                <li class="nav-item" role="presentation" id="admin-tab-item" style="display: none;">
+                    <button class="nav-link" id="admin-tab" data-bs-toggle="tab" data-bs-target="#admin" type="button" role="tab">
+                        <i class="fas fa-cog me-2"></i>Администрирование
+                    </button>
+                </li>
+                <li class="nav-item" role="presentation" id="settings-tab-item" style="display: none;">
+                    <button class="nav-link" id="settings-tab" data-bs-toggle="tab" data-bs-target="#settings" type="button" role="tab">
+                        <i class="fas fa-key me-2"></i>Настройки доступа
+                    </button>
+                </li>
+            </ul>
+
+            <div class="tab-content" id="mainTabsContent">
+                <!-- Вкладка ввода данных -->
+                <div class="tab-pane fade show active" id="operations" role="tabpanel">
+                    <div class="row">
+                        <!-- Форма прихода -->
+                        <div class="col-md-6">
+                            <div class="card">
+                                <div class="card-header" style="background: rgba(76, 175, 80, 0.3);">
+                                    <i class="fas fa-arrow-down me-2"></i>Добавить приход
+                                    <span class="department-badge float-end" id="current-department-income"></span>
+                                </div>
+                                <div class="card-body">
+                                    <form id="income-form">
+                                        <div class="mb-3">
+                                            <label class="form-label">Дата прихода:</label>
+                                            <input type="date" class="form-control" id="income-date" required>
+                                            <div class="invalid-feedback">Пожалуйста, выберите дату.</div>
+                                        </div>
+                                        <div class="mb-3">
+                                            <label class="form-label">Имя поставщика:</label>
+                                            <div class="supplier-select">
+                                                <input type="text" class="form-control" id="income-supplier-name" required placeholder="ФИО поставщика" autocomplete="off">
+                                                <div class="supplier-suggestions" id="income-supplier-suggestions"></div>
+                                            </div>
+                                            <div class="invalid-feedback">Пожалуйста, введите имя поставщика.</div>
+                                        </div>
+                                        <div class="mb-3">
+                                            <label class="form-label">Организация поставщика:</label>
+                                            <div class="supplier-select">
+                                                <input type="text" class="form-control" id="income-supplier-org" required placeholder="Название организации" autocomplete="off">
+                                                <div class="supplier-suggestions" id="income-org-suggestions"></div>
+                                            </div>
+                                            <div class="invalid-feedback">Пожалуйста, введите организацию поставщика.</div>
+                                        </div>
+                                        <div class="mb-3">
+                                            <label class="form-label">Сумма прихода:</label>
+                                            <input type="number" class="form-control" id="income-amount" step="0.01" min="0" required>
+                                            <div class="invalid-feedback">Пожалуйста, введите корректную сумму.</div>
+                                        </div>
+                                        <div class="mb-3">
+                                            <label class="form-label">Комментарий:</label>
+                                            <textarea class="form-control" id="income-comment" rows="2" placeholder="Дополнительная информация"></textarea>
+                                        </div>
+                                        <button type="submit" class="btn btn-success w-100">
+                                            <i class="fas fa-save me-2"></i>Добавить приход
+                                        </button>
+                                    </form>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Форма расхода -->
+                        <div class="col-md-6">
+                            <div class="card">
+                                <div class="card-header" style="background: rgba(244, 67, 54, 0.3);">
+                                    <i class="fas fa-arrow-up me-2"></i>Добавить расход
+                                    <span class="department-badge float-end" id="current-department-expense"></span>
+                                </div>
+                                <div class="card-body">
+                                    <form id="expense-form">
+                                        <div class="mb-3">
+                                            <label class="form-label">Дата расхода:</label>
+                                            <input type="date" class="form-control" id="expense-date" required>
+                                            <div class="invalid-feedback">Пожалуйста, выберите дату.</div>
+                                        </div>
+                                        <div class="mb-3">
+                                            <label class="form-label">Имя поставщика:</label>
+                                            <div class="supplier-select">
+                                                <input type="text" class="form-control" id="expense-supplier-name" required placeholder="ФИО поставщика" autocomplete="off">
+                                                <div class="supplier-suggestions" id="expense-supplier-suggestions"></div>
+                                            </div>
+                                            <div class="invalid-feedback">Пожалуйста, введите имя поставщика.</div>
+                                        </div>
+                                        <div class="mb-3">
+                                            <label class="form-label">Организация поставщика:</label>
+                                            <div class="supplier-select">
+                                                <input type="text" class="form-control" id="expense-supplier-org" required placeholder="Название организации" autocomplete="off">
+                                                <div class="supplier-suggestions" id="expense-org-suggestions"></div>
+                                            </div>
+                                            <div class="invalid-feedback">Пожалуйста, введите организацию поставщика.</div>
+                                        </div>
+                                        <div class="mb-3">
+                                            <label class="form-label">Сумма расхода:</label>
+                                            <input type="number" class="form-control" id="expense-amount" step="0.01" min="0" required>
+                                            <div class="invalid-feedback">Пожалуйста, введите корректную сумму.</div>
+                                        </div>
+                                        <div class="mb-3">
+                                            <label class="form-label">Комментарий:</label>
+                                            <textarea class="form-control" id="expense-comment" rows="2" placeholder="Дополнительная информация"></textarea>
+                                        </div>
+                                        <button type="submit" class="btn btn-danger w-100">
+                                            <i class="fas fa-save me-2"></i>Добавить расход
+                                        </button>
+                                    </form>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Вкладка данных подразделения -->
+                <div class="tab-pane fade" id="department" role="tabpanel">
+                    <div class="card">
+                        <div class="card-header">
+                            <i class="fas fa-list me-2"></i>
+                            <span id="department-data-title">Данные подразделения</span>
+                            <span class="department-badge float-end" id="current-department-data"></span>
+                            <div class="search-box mt-2">
+                                <input type="text" class="form-control" id="department-search" placeholder="Поиск по поставщику, организации или комментарию...">
+                                <i class="fas fa-search"></i>
+                            </div>
+                        </div>
+                        <div class="card-body">
+                            <div class="table-responsive">
+                                <table class="table">
+                                    <thead>
+                                        <tr>
+                                            <th>Дата</th>
+                                            <th>Тип</th>
+                                            <th>Поставщик</th>
+                                            <th>Организация</th>
+                                            <th>Сумма</th>
+                                            <th>Комментарий</th>
+                                            <th>Действия</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="department-data-table">
+                                        <!-- Данные подразделения будут здесь -->
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Вкладка расширенного отчета -->
+                <div class="tab-pane fade" id="online" role="tabpanel">
+                    <!-- Панель управления отчетом -->
+                    <div class="report-controls">
+                        <div class="row align-items-center">
+                            <div class="col-md-8">
+                                <div class="row">
+                                    <div class="col-md-4">
+                                        <label class="form-label">Период от:</label>
+                                        <input type="date" class="form-control" id="report-date-from">
+                                    </div>
+                                    <div class="col-md-4">
+                                        <label class="form-label">Период до:</label>
+                                        <input type="date" class="form-control" id="report-date-to">
+                                    </div>
+                                    <div class="col-md-4">
+                                        <label class="form-label">Подразделение:</label>
+                                        <select class="form-select" id="report-department">
+                                            <option value="all">Все подразделения</option>
+                                            <option value="R1">R1</option>
+                                            <option value="R3">R3</option>
+                                            <option value="R6">R6</option>
+                                            <option value="R7">R7</option>
+                                            <option value="R8">R8</option>
+                                            <option value="D1">No name 1</option>
+                                            <option value="D2">No name 2</option>
+                                            <option value="D3">No name 3</option>
+                                            <option value="D4">No name 4</option>
+                                            <option value="D5">No name 5</option>
+                                            <option value="D6">No name 6</option>
+                                        </select>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-4 text-end">
+                                <button class="btn btn-success me-2" onclick="generateReport()">
+                                    <i class="fas fa-sync-alt me-2"></i>Сформировать
+                                </button>
+                                <button class="btn btn-primary" onclick="exportToExcel()">
+                                    <i class="fas fa-file-excel me-2"></i>Excel
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Сводная статистика -->
+                    <div class="row mb-4" id="report-summary">
+                        <!-- Сводка будет загружена здесь -->
+                    </div>
+
+                    <!-- Детальный отчет -->
+                    <div class="card">
+                        <div class="card-header">
+                            <i class="fas fa-table me-2"></i>Детальный отчет по операциям
+                            <div class="float-end">
+                                <button class="btn btn-sm btn-outline-light me-2" onclick="toggleFilters()">
+                                    <i class="fas fa-filter me-1"></i>Фильтры
+                                </button>
+                                <span class="badge bg-light text-dark" id="total-records">0 записей</span>
+                            </div>
+                            <div class="search-box mt-2">
+                                <input type="text" class="form-control" id="report-search" placeholder="Поиск по всем полям...">
+                                <i class="fas fa-search"></i>
+                            </div>
+                        </div>
+                        <div class="card-body">
+                            <!-- Панель фильтров -->
+                            <div class="row mb-3" id="filters-panel" style="display: none;">
+                                <div class="col-md-3">
+                                    <label class="form-label">Тип операции:</label>
+                                    <select class="form-select" id="filter-type" onchange="applyFilters()">
+                                        <option value="all">Все операции</option>
+                                        <option value="income">Только приход</option>
+                                        <option value="expense">Только расход</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-3">
+                                    <label class="form-label">Поставщик:</label>
+                                    <input type="text" class="form-control" id="filter-supplier" placeholder="Фильтр по поставщику" oninput="applyFilters()">
+                                </div>
+                                <div class="col-md-3">
+                                    <label class="form-label">Минимальная сумма:</label>
+                                    <input type="number" class="form-control" id="filter-min-amount" placeholder="0" oninput="applyFilters()">
+                                </div>
+                                <div class="col-md-3">
+                                    <label class="form-label">Максимальная сумма:</label>
+                                    <input type="number" class="form-control" id="filter-max-amount" placeholder="9999999" oninput="applyFilters()">
+                                </div>
+                            </div>
+
+                            <div class="table-responsive">
+                                <table class="table online-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Дата</th>
+                                            <th>Подразделение</th>
+                                            <th>Тип</th>
+                                            <th>Поставщик</th>
+                                            <th>Организация</th>
+                                            <th>Сумма</th>
+                                            <th>Комментарий</th>
+                                            <th>Пользователь</th>
+                                            <th>Телефон</th>
+                                            <th>Дата ввода</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="detailed-report-table">
+                                        <!-- Детальные данные будут здесь -->
+                                    </tbody>
+                                    <!-- Итоговая строка для подразделения "Общий" -->
+                                    <tfoot id="report-total-footer" style="display: none;">
+                                        <!-- Итоги будут здесь -->
+                                    </tfoot>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Вкладка базы поставщиков -->
+                <div class="tab-pane fade" id="suppliers" role="tabpanel">
+                    <div class="card">
+                        <div class="card-header">
+                            <i class="fas fa-address-book me-2"></i>База поставщиков
+                            <span class="department-badge float-end" id="current-department-suppliers"></span>
+                        </div>
+                        <div class="card-body">
+                            <!-- Форма добавления поставщика -->
+                            <div class="row mb-4">
+                                <div class="col-md-8">
+                                    <div class="card">
+                                        <div class="card-header">
+                                            <i class="fas fa-plus me-2"></i>Добавить нового поставщика
+                                        </div>
+                                        <div class="card-body">
+                                            <form id="add-supplier-form">
+                                                <div class="row">
+                                                    <div class="col-md-6">
+                                                        <div class="mb-3">
+                                                            <label class="form-label">Имя поставщика:</label>
+                                                            <input type="text" class="form-control" id="new-supplier-name" required placeholder="ФИО поставщика">
+                                                        </div>
+                                                    </div>
+                                                    <div class="col-md-6">
+                                                        <div class="mb-3">
+                                                            <label class="form-label">Организация:</label>
+                                                            <input type="text" class="form-control" id="new-supplier-org" required placeholder="Название организации">
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                <button type="submit" class="btn btn-success">
+                                                    <i class="fas fa-save me-2"></i>Добавить поставщика
+                                                </button>
+                                            </form>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-md-4">
+                                    <div class="card">
+                                        <div class="card-header">
+                                            <i class="fas fa-info-circle me-2"></i>Информация
+                                        </div>
+                                        <div class="card-body">
+                                            <p class="small">Здесь вы можете добавлять поставщиков в общую базу.</p>
+                                            <p class="small">Поставщики будут доступны для выбора при вводе операций.</p>
+                                            <p class="small text-warning">Удалять поставщиков может только администратор.</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Таблица поставщиков -->
+                            <div class="table-responsive">
+                                <table class="table supplier-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Имя поставщика</th>
+                                            <th>Организация</th>
+                                            <th>Дата добавления</th>
+                                            <th>Добавил</th>
+                                            <th>Действия</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="suppliers-table">
+                                        <!-- Данные поставщиков будут здесь -->
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Вкладка администрирования -->
+                <div class="tab-pane fade" id="admin" role="tabpanel">
+                    <div class="row">
+                        <div class="col-md-12">
+                            <div class="card">
+                                <div class="card-header">
+                                    <i class="fas fa-chart-bar me-2"></i>Сводный отчет по всем подразделениям
+                                </div>
+                                <div class="card-body">
+                                    <div class="table-responsive">
+                                        <table class="table admin-summary-table">
+                                            <thead>
+                                                <tr>
+                                                    <th>Подразделение</th>
+                                                    <th>Приход</th>
+                                                    <th>Расход</th>
+                                                    <th>Остаток</th>
+                                                    <th>Действия</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody id="admin-summary-table">
+                                                <!-- Сводные данные будут здесь -->
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="row mt-4">
+                        <div class="col-md-6">
+                            <div class="card">
+                                <div class="card-header">
+                                    <i class="fas fa-users-cog me-2"></i>Управление правами
+                                </div>
+                                <div class="card-body">
+                                    <div class="mb-3">
+                                        <label class="form-label">Разрешить редактирование данных:</label>
+                                        <div class="form-check form-switch">
+                                            <input class="form-check-input" type="checkbox" id="allow-edit" checked>
+                                            <label class="form-check-label" for="allow-edit">Разрешено</label>
+                                        </div>
+                                    </div>
+                                    <div class="mb-3">
+                                        <label class="form-label">Разрешить удаление данных:</label>
+                                        <div class="form-check form-switch">
+                                            <input class="form-check-input" type="checkbox" id="allow-delete" checked>
+                                            <label class="form-check-label" for="allow-delete">Разрешено</label>
+                                        </div>
+                                    </div>
+                                    <button class="btn btn-primary" onclick="savePermissions()">
+                                        <i class="fas fa-save me-2"></i>Сохранить настройки
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="card">
+                                <div class="card-header">
+                                    <i class="fas fa-history me-2"></i>Журнал аудита
+                                </div>
+                                <div class="card-body">
+                                    <div class="table-responsive">
+                                        <table class="table">
+                                            <thead>
+                                                <tr>
+                                                    <th>Дата</th>
+                                                    <th>Пользователь</th>
+                                                    <th>Действие</th>
+                                                    <th>Подразделение</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody id="audit-log-table">
+                                                <!-- Журнал аудита будет здесь -->
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Вкладка настроек доступа -->
+                <div class="tab-pane fade" id="settings" role="tabpanel">
+                    <div class="card">
+                        <div class="card-header">
+                            <i class="fas fa-key me-2"></i>Управление кодами доступа к подразделениям
+                        </div>
+                        <div class="card-body">
+                            <div class="alert alert-info">
+                                <i class="fas fa-info-circle me-2"></i>
+                                Здесь вы можете устанавливать и изменять коды доступа для каждого подразделения.
+                                Пользователи должны будут вводить этот код для входа в свое подразделение.
+                            </div>
+                            
+                            <div class="table-responsive">
+                                <table class="table">
+                                    <thead>
+                                        <tr>
+                                            <th>Подразделение</th>
+                                            <th>Текущий код доступа</th>
+                                            <th>Новый код доступа</th>
+                                            <th>Действия</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="access-codes-table">
+                                        <!-- Коды доступа будут здесь -->
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Модальное окно редактирования -->
+    <div class="modal fade" id="editTransactionModal" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Редактирование операции</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="edit-transaction-form">
+                        <input type="hidden" id="edit-transaction-id">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label class="form-label">Тип операции:</label>
+                                    <select class="form-control" id="edit-transaction-type" required>
+                                        <option value="income">Приход</option>
+                                        <option value="expense">Расход</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label class="form-label">Дата:</label>
+                                    <input type="date" class="form-control" id="edit-transaction-date" required>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label class="form-label">Имя поставщика:</label>
+                                    <input type="text" class="form-control" id="edit-transaction-supplier-name" required>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label class="form-label">Организация:</label>
+                                    <input type="text" class="form-control" id="edit-transaction-supplier-org" required>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label class="form-label">Сумма:</label>
+                            <input type="number" class="form-control" id="edit-transaction-amount" step="0.01" min="0" required>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label class="form-label">Комментарий:</label>
+                            <textarea class="form-control" id="edit-transaction-comment" rows="3"></textarea>
+                        </div>
+                        
+                        <div class="audit-log mb-3" id="edit-audit-info">
+                            <!-- Информация об аудите будет здесь -->
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Отмена</button>
+                    <button type="button" class="btn btn-danger" id="delete-btn" onclick="confirmDeleteTransaction()">Удалить</button>
+                    <button type="button" class="btn btn-primary" id="save-btn" onclick="saveTransactionChanges()">Сохранить</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Модальное окно подтверждения -->
+    <div class="modal fade confirmation-modal" id="confirmationModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Подтверждение действия</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <p id="confirmation-message">Вы уверены, что хотите выполнить это действие?</p>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Отмена</button>
+                    <button type="button" class="btn btn-danger" id="confirm-action-btn">Подтвердить</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Индикатор загрузки -->
+    <div class="loading-overlay" id="loading-overlay">
+        <div class="loading-spinner"></div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // Хранилище данных
+        const STORAGE_KEYS = {
+            TRANSACTIONS: 'department_transactions',
+            USERS: 'department_users',
+            SETTINGS: 'department_settings',
+            AUDIT_LOG: 'department_audit_log',
+            SUPPLIERS: 'department_suppliers',
+            ACCESS_CODES: 'department_access_codes'
+        };
+
+        // Текущий пользователь
+        let currentUser = null;
+        let currentDepartment = null;
+        let currentReportData = [];
+        let currentDepartmentData = [];
+        let currentFocus = -1; // Для навигации по подсказкам
+
+        // Подразделения
+        const DEPARTMENTS = [
+            { id: 'Общий', name: 'Общий (Администратор)' },
+            { id: 'R1', name: 'R1' },
+            { id: 'R3', name: 'R3' },
+            { id: 'R6', name: 'R6' },
+            { id: 'R7', name: 'R7' },
+            { id: 'R8', name: 'R8' },
+            { id: 'D1', name: 'No name 1' },
+            { id: 'D2', name: 'No name 2' },
+            { id: 'D3', name: 'No name 3' },
+            { id: 'D4', name: 'No name 4' },
+            { id: 'D5', name: 'No name 5' },
+            { id: 'D6', name: 'No name 6' }
+        ];
+
+        async function awaitinitData() {
+  try {
+    showLoading();
+    
+    // Загружаем данные с разных листов
+    const [transactionsData, suppliersData, settingsData] = await Promise.all([
+      gsAPI.readSheet(CONFIG.SHEET_NAMES.TRANSACTIONS),
+      gsAPI.readSheet(CONFIG.SHEET_NAMES.SUPPLIERS),
+      gsAPI.readSheet(CONFIG.SHEET_NAMES.SETTINGS)
+    ]);
+
+    // Преобразуем данные из формата Google Sheets в наши объекты
+    return {
+      transactions: transactionsData.slice(1).map(row => ({
+        id: row[0],
+        type: row[1],
+        department: row[2],
+        date: row[3],
+        supplierName: row[4],
+        supplierOrg: row[5],
+        amount: parseFloat(row[6]),
+        comment: row[7],
+        createdBy: row[8],
+        createdAt: row[9],
+        lastModifiedBy: row[10],
+        lastModifiedAt: row[11]
+      })),
+      suppliers: suppliersData.slice(1).map(row => ({
+        name: row[0],
+        org: row[1],
+        addedBy: row[2],
+        addedByDepartment: row[3],
+        addedAt: row[4]
+      })),
+      settings: {
+        allowEdit: settingsData[1] ? settingsData[1][0] === 'TRUE' : true,
+        allowDelete: settingsData[1] ? settingsData[1][1] === 'TRUE' : true
+      },
+      auditLog: [], // Аудит-лог можно вести в отдельном листе
+      accessCodes: JSON.parse(localStorage.getItem(STORAGE_KEYS.ACCESS_CODES)) || generateDefaultAccessCodes()
+    };
+  } catch (error) {
+    console.error('Ошибка загрузки данных:', error);
+    showAlert('Ошибка загрузки данных. Проверьте подключение.', 'error');
+    return getEmptyData();
+  } finally {
+    hideLoading();
+  }
+}
+
+        // Форматирование чисел
+        function formatNumber(number) {
+            return new Intl.NumberFormat('ru-RU', {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2
+            }).format(number);
+        }
+
+        // Инициализация данных
+        function awaitinitData() {
+            return {
+                transactions: JSON.parse(localStorage.getItem(STORAGE_KEYS.TRANSACTIONS)) || [],
+                users: JSON.parse(localStorage.getItem(STORAGE_KEYS.USERS)) || [],
+                settings: JSON.parse(localStorage.getItem(STORAGE_KEYS.SETTINGS)) || {
+                    allowEdit: true,
+                    allowDelete: true
+                },
+                auditLog: JSON.parse(localStorage.getItem(STORAGE_KEYS.AUDIT_LOG)) || [],
+                suppliers: JSON.parse(localStorage.getItem(STORAGE_KEYS.SUPPLIERS)) || [],
+                accessCodes: JSON.parse(localStorage.getItem(STORAGE_KEYS.ACCESS_CODES)) || generateDefaultAccessCodes()
+            };
+        }
+        function getEmptyData() {
+    return {
+        transactions: [],
+        suppliers: [],
+        settings: { allowEdit: true, allowDelete: true },
+        auditLog: [],
+        accessCodes: generateDefaultAccessCodes()
+    };
+}
+
+        // Генерация кодов доступа по умолчанию
+        function generateDefaultAccessCodes() {
+            const codes = {};
+            DEPARTMENTS.forEach(dept => {
+                // Генерируем простой код на основе названия подразделения
+                codes[dept.id] = dept.id + '123';
+            });
+            // Для подразделения "Общий" устанавливаем специальный код
+            codes['Общий'] = 'admin';
+            return codes;
+        }
+
+        // Сохранение данных
+        function saveData(key, data) {
+            localStorage.setItem(key, JSON.stringify(data));
+        }
+
+        // Показать индикатор загрузки
+        function showLoading() {
+            document.getElementById('loading-overlay').style.display = 'flex';
+        }
+
+        // Скрыть индикатор загрузки
+        function hideLoading() {
+            document.getElementById('loading-overlay').style.display = 'none';
+        }
+
+        // Показать модальное окно подтверждения
+        function showConfirmation(message, callback) {
+            document.getElementById('confirmation-message').textContent = message;
+            const confirmBtn = document.getElementById('confirm-action-btn');
+            
+            // Удаляем предыдущие обработчики
+            confirmBtn.replaceWith(confirmBtn.cloneNode(true));
+            const newConfirmBtn = document.getElementById('confirm-action-btn');
+            
+            // Добавляем новый обработчик
+            newConfirmBtn.addEventListener('click', function() {
+                const modal = bootstrap.Modal.getInstance(document.getElementById('confirmationModal'));
+                modal.hide();
+                callback();
+            });
+            
+            const modal = new bootstrap.Modal(document.getElementById('confirmationModal'));
+            modal.show();
+        }
+
+        // Загрузка при старте
+        document.addEventListener('DOMContentLoaded', function() {
+            // Установка текущей даты по умолчанию
+            const today = new Date().toISOString().split('T')[0];
+            const firstDay = new Date();
+            firstDay.setDate(1);
+            const firstDayStr = firstDay.toISOString().split('T')[0];
+            
+            document.getElementById('income-date').value = today;
+            document.getElementById('expense-date').value = today;
+            document.getElementById('report-date-from').value = firstDayStr;
+            document.getElementById('report-date-to').value = today;
+            
+            // Показываем модальное окно входа
+            const loginModal = new bootstrap.Modal(document.getElementById('loginModal'));
+            loginModal.show();
+            
+            setupEventListeners();
+        });
+
+        // Настройка обработчиков событий
+        function setupEventListeners() {
+            // Форма входа
+            document.getElementById('login-form').addEventListener('submit', handleLogin);
+            
+            // Форма прихода
+            document.getElementById('income-form').addEventListener('submit', addIncome);
+            
+            // Форма расхода
+            document.getElementById('expense-form').addEventListener('submit', addExpense);
+            
+            // Форма добавления поставщика
+            document.getElementById('add-supplier-form').addEventListener('submit', addSupplier);
+            
+            // Поиск в данных подразделения
+            document.getElementById('department-search').addEventListener('input', filterDepartmentData);
+            
+            // Поиск в отчете
+            document.getElementById('report-search').addEventListener('input', filterReportData);
+            
+            // Валидация форм
+            setupFormValidation();
+            
+            // Автодополнение поставщиков
+            setupSupplierAutocomplete();
+        }
+
+        // Настройка валидации форм
+        function setupFormValidation() {
+            // Валидация формы входа
+            const loginForm = document.getElementById('login-form');
+            const loginInputs = loginForm.querySelectorAll('input, select');
+            
+            loginInputs.forEach(input => {
+                input.addEventListener('blur', function() {
+                    validateField(this);
+                });
+            });
+            
+            // Валидация формы прихода
+            const incomeForm = document.getElementById('income-form');
+            const incomeInputs = incomeForm.querySelectorAll('input, textarea');
+            
+            incomeInputs.forEach(input => {
+                input.addEventListener('blur', function() {
+                    validateField(this);
+                });
+            });
+            
+            // Валидация формы расхода
+            const expenseForm = document.getElementById('expense-form');
+            const expenseInputs = expenseForm.querySelectorAll('input, textarea');
+            
+            expenseInputs.forEach(input => {
+                input.addEventListener('blur', function() {
+                    validateField(this);
+                });
+            });
+        }
+
+        // Валидация поля формы
+        function validateField(field) {
+            if (field.hasAttribute('required') && !field.value.trim()) {
+                field.classList.add('is-invalid');
+                return false;
+            }
+            
+            if (field.type === 'number' && field.value && parseFloat(field.value) <= 0) {
+                field.classList.add('is-invalid');
+                return false;
+            }
+            
+            field.classList.remove('is-invalid');
+            return true;
+        }
+
+        // Валидация формы
+        function validateForm(form) {
+            let isValid = true;
+            const inputs = form.querySelectorAll('input, select, textarea');
+            
+            inputs.forEach(input => {
+                if (!validateField(input)) {
+                    isValid = false;
+                }
+            });
+            
+            return isValid;
+        }
+
+        // Настройка автодополнения поставщиков
+        function setupSupplierAutocomplete() {
+            const supplierFields = [
+                { name: 'income-supplier-name', suggestions: 'income-supplier-suggestions', orgField: 'income-supplier-org' },
+                { name: 'income-supplier-org', suggestions: 'income-org-suggestions', nameField: 'income-supplier-name' },
+                { name: 'expense-supplier-name', suggestions: 'expense-supplier-suggestions', orgField: 'expense-supplier-org' },
+                { name: 'expense-supplier-org', suggestions: 'expense-org-suggestions', nameField: 'expense-supplier-name' }
+            ];
+            
+            supplierFields.forEach(field => {
+                const input = document.getElementById(field.name);
+                const suggestions = document.getElementById(field.suggestions);
+                let currentFocus = -1;
+                
+                input.addEventListener('input', function() {
+                    const fieldType = field.name.includes('org') ? 'org' : 'name';
+                    showSupplierSuggestions(this.value, fieldType, suggestions, field);
+                    currentFocus = -1;
+                });
+                
+                input.addEventListener('focus', function() {
+                    const fieldType = field.name.includes('org') ? 'org' : 'name';
+                    showSupplierSuggestions(this.value, fieldType, suggestions, field);
+                });
+                
+                input.addEventListener('keydown', function(e) {
+                    const items = suggestions.querySelectorAll('.supplier-suggestion');
+                    
+                    if (e.keyCode === 40) { // Стрелка вниз
+                        e.preventDefault();
+                        currentFocus++;
+                        setActive(items);
+                    } else if (e.keyCode === 38) { // Стрелка вверх
+                        e.preventDefault();
+                        currentFocus--;
+                        setActive(items);
+                    } else if (e.keyCode === 13) { // Enter
+                        e.preventDefault();
+                        if (currentFocus > -1) {
+                            if (items.length > currentFocus) {
+                                items[currentFocus].click();
+                            }
+                        }
+                    } else if (e.keyCode === 27) { // Escape
+                        suggestions.style.display = 'none';
+                        currentFocus = -1;
+                    }
+                });
+                
+                function setActive(items) {
+                    if (!items || items.length === 0) return false;
+                    
+                    removeActive(items);
+                    
+                    if (currentFocus >= items.length) currentFocus = 0;
+                    if (currentFocus < 0) currentFocus = items.length - 1;
+                    
+                    items[currentFocus].classList.add('active');
+                    items[currentFocus].scrollIntoView({ block: 'nearest' });
+                }
+                
+                function removeActive(items) {
+                    items.forEach(item => {
+                        item.classList.remove('active');
+                    });
+                }
+                
+                // Скрываем подсказки при клике вне поля
+                document.addEventListener('click', function(e) {
+                    if (!input.contains(e.target) && !suggestions.contains(e.target)) {
+                        suggestions.style.display = 'none';
+                        currentFocus = -1;
+                    }
+                });
+            });
+        }
+
+        // Показать подсказки для поставщиков (обновленная версия)
+        function showSupplierSuggestions(query, type, suggestionsContainer, fieldInfo) {
+            const data = awaitinitData()
+            let suppliers = data.suppliers;
+            
+            if (query.length < 1) {
+                // Показываем последние добавленные поставщики при пустом запросе
+                const recentSuppliers = suppliers.slice(-10).reverse();
+                displaySuggestions(recentSuppliers, type, suggestionsContainer, fieldInfo);
+                return;
+            }
+            
+            const filteredSuppliers = suppliers.filter(supplier => {
+                const field = type === 'org' ? supplier.org : supplier.name;
+                return field.toLowerCase().includes(query.toLowerCase());
+            });
+            
+            displaySuggestions(filteredSuppliers, type, suggestionsContainer, fieldInfo);
+        }
+
+        // Отображение подсказок
+        function displaySuggestions(suppliers, type, suggestionsContainer, fieldInfo) {
+            if (suppliers.length === 0) {
+                suggestionsContainer.style.display = 'none';
+                return;
+            }
+            
+            suggestionsContainer.innerHTML = suppliers.map(supplier => `
+                <div class="supplier-suggestion" 
+                     data-name="${supplier.name}" 
+                     data-org="${supplier.org}"
+                     onclick="selectSupplierSuggestion('${fieldInfo.name}', '${supplier.name}', '${supplier.org}', '${fieldInfo.orgField || ''}', '${fieldInfo.nameField || ''}')">
+                    ${type === 'org' ? 
+                        `<div>
+                            <div class="org">${supplier.org}</div>
+                            <div class="name">${supplier.name}</div>
+                         </div>` :
+                        `<div>
+                            <div class="name">${supplier.name}</div>
+                            <div class="org">${supplier.org}</div>
+                         </div>`
+                    }
+                </div>
+            `).join('');
+            
+            suggestionsContainer.style.display = 'block';
+        }
+
+        // Выбор поставщика из подсказок
+        function selectSupplierSuggestion(fieldName, name, org, orgField = '', nameField = '') {
+            // Заполняем текущее поле
+            document.getElementById(fieldName).value = fieldName.includes('org') ? org : name;
+            
+            // Если есть связанное поле, заполняем и его
+            if (orgField && fieldName.includes('name')) {
+                document.getElementById(orgField).value = org;
+            }
+            if (nameField && fieldName.includes('org')) {
+                document.getElementById(nameField).value = name;
+            }
+            
+            // Скрываем все подсказки
+            document.querySelectorAll('.supplier-suggestions').forEach(suggestions => {
+                suggestions.style.display = 'none';
+            });
+            
+            // Сбрасываем текущий фокус
+            currentFocus = -1;
+        }
+
+        // Сохранить поставщика в базу
+        function saveSupplier(name, org) {
+            const data = awaitinitData();
+            
+            // Проверяем, нет ли уже такого поставщика
+            const exists = data.suppliers.some(supplier => 
+                supplier.name === name && supplier.org === org
+            );
+            
+            if (!exists) {
+                data.suppliers.push({ 
+                    name, 
+                    org,
+                    addedBy: currentUser.username,
+                    addedByDepartment: currentDepartment,
+                    addedAt: new Date().toISOString()
+                });
+                saveData(STORAGE_KEYS.SUPPLIERS, data.suppliers);
+            }
+        }
+
+        // Обработка входа
+        function handleLogin(e) {
+            e.preventDefault();
+            
+            if (!validateForm(e.target)) {
+                showAlert('Пожалуйста, заполните все обязательные поля корректно.', 'warning');
+                return;
+            }
+            
+            const department = document.getElementById('login-department').value;
+            const username = document.getElementById('login-username').value;
+            const accessCode = document.getElementById('login-access-code').value;
+            
+            const data = awaitinitData();
+            
+            // Проверяем код доступа
+            if (data.accessCodes[department] !== accessCode) {
+                showAlert('Неверный код доступа для выбранного подразделения.', 'error');
+                return;
+            }
+            
+            currentUser = {
+                id: Date.now(),
+                username: username,
+                department: department,
+                loginTime: new Date().toISOString()
+            };
+            
+            currentDepartment = department;
+            
+            // Сохраняем пользователя
+            data.users.push(currentUser);
+            saveData(STORAGE_KEYS.USERS, data.users);
+            
+            // Добавляем запись в аудит-лог
+            addAuditLog('Вход в систему', department);
+            
+            // Скрываем модальное окно и показываем основной интерфейс
+            const loginModal = bootstrap.Modal.getInstance(document.getElementById('loginModal'));
+            loginModal.hide();
+            
+            document.getElementById('main-interface').style.display = 'block';
+            
+            // Обновляем интерфейс
+            updateInterface();
+            loadAllData();
+            
+            // Автоматически генерируем отчет
+            generateReport();
+        }
+
+        // Обновление интерфейса в зависимости от роли
+        function updateInterface() {
+            // Показываем/скрываем вкладку администрирования и настроек
+            if (currentDepartment === 'Общий') {
+                document.getElementById('admin-tab-item').style.display = 'block';
+                document.getElementById('settings-tab-item').style.display = 'block';
+            } else {
+                document.getElementById('admin-tab-item').style.display = 'none';
+                document.getElementById('settings-tab-item').style.display = 'none';
+            }
+            
+            // Обновляем отображение текущего подразделения
+            document.getElementById('current-department-income').textContent = currentDepartment;
+            document.getElementById('current-department-expense').textContent = currentDepartment;
+            document.getElementById('current-department-data').textContent = currentDepartment;
+            document.getElementById('current-department-suppliers').textContent = currentDepartment;
+            
+            // Обновляем заголовок вкладки данных
+            if (currentDepartment === 'Общий') {
+                document.getElementById('department-data-title').textContent = 'Все данные подразделений';
+            } else {
+                document.getElementById('department-data-title').textContent = 'Данные подразделения';
+            }
+            
+            // Загружаем настройки прав
+            loadPermissions();
+            
+            // Обновляем информацию о пользователе
+            updateUserInfo();
+            
+            // Обновляем сводный отчет для админа
+            if (currentDepartment === 'Общий') {
+                updateAdminSummary();
+                updateAccessCodesTable();
+            }
+            
+            // Обновляем базу поставщиков
+            updateSuppliersTable();
+        }
+
+        // Обновление информации о пользователе
+        function updateUserInfo() {
+            const userInfo = document.getElementById('current-user-info');
+            
+            userInfo.innerHTML = `
+                <strong>${currentUser.username}</strong>
+                <span class="badge bg-info role-badge">${currentDepartment === 'Общий' ? 'Администратор' : 'Пользователь'}</span>
+                <span class="department-badge">${currentDepartment}</span>
+            `;
+        }
+
+        // Обновление таблицы кодов доступа
+        function updateAccessCodesTable() {
+            const table = document.getElementById('access-codes-table');
+            const data = awaitinitData();
+            
+            let html = '';
+            
+            DEPARTMENTS.forEach(dept => {
+                if (dept.id !== 'Общий') {
+                    const currentCode = data.accessCodes[dept.id] || 'не установлен';
+                    html += `
+                        <tr>
+                            <td><strong>${dept.name}</strong></td>
+                            <td>
+                                <code class="access-code-input">${currentCode}</code>
+                            </td>
+                            <td>
+                                <input type="password" class="form-control access-code-input" 
+                                       id="new-code-${dept.id}" 
+                                       placeholder="Новый код доступа"
+                                       minlength="3">
+                            </td>
+                            <td>
+                                <button class="btn btn-primary btn-sm" onclick="updateAccessCode('${dept.id}')">
+                                    <i class="fas fa-save me-1"></i>Обновить
+                                </button>
+                                <button class="btn btn-info btn-sm" onclick="generateRandomCode('${dept.id}')">
+                                    <i class="fas fa-random me-1"></i>Сгенерировать
+                                </button>
+                            </td>
+                        </tr>
+                    `;
+                }
+            });
+            
+            table.innerHTML = html || '<tr><td colspan="4" class="text-center">Нет подразделений</td></tr>';
+        }
+
+        // Обновление кода доступа
+        function updateAccessCode(departmentId) {
+            const newCodeInput = document.getElementById(`new-code-${departmentId}`);
+            const newCode = newCodeInput.value.trim();
+            
+            if (!newCode) {
+                showAlert('Пожалуйста, введите новый код доступа.', 'warning');
+                return;
+            }
+            
+            if (newCode.length < 3) {
+                showAlert('Код доступа должен содержать минимум 3 символа.', 'warning');
+                return;
+            }
+            
+            const data = awaitinitData();
+            const oldCode = data.accessCodes[departmentId];
+            data.accessCodes[departmentId] = newCode;
+            saveData(STORAGE_KEYS.ACCESS_CODES, data.accessCodes);
+            
+            // Добавляем запись в аудит-лог
+            addAuditLog(`Обновлен код доступа для ${departmentId}`, 'Общий');
+            
+            newCodeInput.value = '';
+            updateAccessCodesTable();
+            showAlert(`Код доступа для ${departmentId} успешно обновлен!`, 'success');
+        }
+
+        // Генерация случайного кода
+        function generateRandomCode(departmentId) {
+            const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+            let result = '';
+            for (let i = 0; i < 6; i++) {
+                result += chars.charAt(Math.floor(Math.random() * chars.length));
+            }
+            
+            document.getElementById(`new-code-${departmentId}`).value = result;
+            showAlert(`Сгенерирован новый код: ${result}`, 'info');
+        }
+
+        // Генерация отчета
+        function generateReport() {
+            showLoading();
+            
+            setTimeout(() => {
+                const dateFrom = document.getElementById('report-date-from').value;
+                const dateTo = document.getElementById('report-date-to').value;
+                const department = document.getElementById('report-department').value;
+                
+                const data = awaitinitData();
+                let transactions = data.transactions;
+                
+                // Фильтрация по дате
+                if (dateFrom) {
+                    transactions = transactions.filter(t => t.date >= dateFrom);
+                }
+                if (dateTo) {
+                    transactions = transactions.filter(t => t.date <= dateTo);
+                }
+                
+                // Фильтрация по подразделению
+                if (department !== 'all') {
+                    transactions = transactions.filter(t => t.department === department);
+                }
+                
+                // Для обычных пользователей показываем только их подразделение
+                if (currentDepartment !== 'Общий') {
+                    transactions = transactions.filter(t => t.department === currentDepartment);
+                    document.getElementById('report-department').value = currentDepartment;
+                    document.getElementById('report-department').disabled = true;
+                } else {
+                    document.getElementById('report-department').disabled = false;
+                }
+                
+                // Сохраняем данные для фильтрации
+                currentReportData = transactions;
+                
+                // Обновляем интерфейс отчета
+                updateReportSummary(transactions);
+                updateDetailedReport(transactions);
+                applyFilters(); // Применяем фильтры по умолчанию
+                
+                hideLoading();
+            }, 500);
+        }
+
+        // Обновление сводки отчета
+        function updateReportSummary(transactions) {
+            const summaryContainer = document.getElementById('report-summary');
+            
+            if (transactions.length === 0) {
+                summaryContainer.innerHTML = '<div class="col-12 text-center text-white-50">Нет данных для отображения</div>';
+                return;
+            }
+            
+            const totalIncome = transactions
+                .filter(t => t.type === 'income')
+                .reduce((sum, t) => sum + t.amount, 0);
+            
+            const totalExpense = transactions
+                .filter(t => t.type === 'expense')
+                .reduce((sum, t) => sum + t.amount, 0);
+            
+            const balance = totalIncome - totalExpense;
+            
+            summaryContainer.innerHTML = `
+                <div class="col-md-4">
+                    <div class="summary-card">
+                        <h6><i class="fas fa-arrow-down text-success me-2"></i>Общий приход</h6>
+                        <h4 class="positive">${formatNumber(totalIncome)}</h4>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="summary-card">
+                        <h6><i class="fas fa-arrow-up text-danger me-2"></i>Общий расход</h6>
+                        <h4 class="negative">${formatNumber(totalExpense)}</h4>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="summary-card">
+                        <h6><i class="fas fa-balance-scale text-primary me-2"></i>Баланс</h6>
+                        <h4 class="${balance >= 0 ? 'positive' : 'negative'}">${formatNumber(balance)}</h4>
+                    </div>
+                </div>
+            `;
+        }
+
+        // Обновление детального отчета с итогами по подразделениям
+        function updateDetailedReport(transactions) {
+            const table = document.getElementById('detailed-report-table');
+            const footer = document.getElementById('report-total-footer');
+            
+            if (transactions.length === 0) {
+                table.innerHTML = '<tr><td colspan="10" class="text-center text-white-50">Нет данных для отображения</td></tr>';
+                document.getElementById('total-records').textContent = '0 записей';
+                footer.style.display = 'none';
+                return;
+            }
+            
+            // Сортируем по дате (новые сверху)
+            const sortedTransactions = transactions.sort((a, b) => new Date(b.date) - new Date(a.date));
+            
+            let html = '';
+            const departmentTotals = {};
+            
+            // Инициализируем итоги по подразделениям
+            DEPARTMENTS.forEach(dept => {
+                if (dept.id !== 'Общий') {
+                    departmentTotals[dept.id] = { income: 0, expense: 0, balance: 0 };
+                }
+            });
+            
+            sortedTransactions.forEach(transaction => {
+                if (departmentTotals[transaction.department]) {
+                    if (transaction.type === 'income') {
+                        departmentTotals[transaction.department].income += transaction.amount;
+                    } else {
+                        departmentTotals[transaction.department].expense += transaction.amount;
+                    }
+                }
+                
+                html += `
+                    <tr>
+                        <td>${formatDate(transaction.date)}</td>
+                        <td><span class="department-badge">${transaction.department}</span></td>
+                        <td>
+                            <span class="badge ${transaction.type === 'income' ? 'bg-success' : 'bg-danger'}">
+                                ${transaction.type === 'income' ? 'Приход' : 'Расход'}
+                            </span>
+                        </td>
+                        <td>${transaction.supplierName}</td>
+                        <td>${transaction.supplierOrg}</td>
+                        <td class="fw-bold ${transaction.type === 'income' ? 'positive' : 'negative'}">
+                            ${formatNumber(transaction.amount)}
+                        </td>
+                        <td>${transaction.comment || '-'}</td>
+                        <td>
+                            <small>${transaction.createdBy}</small>
+                            ${transaction.lastModifiedBy !== transaction.createdBy ? 
+                                `<br><small class="text-white-50">изм: ${transaction.lastModifiedBy}</small>` : ''}
+                        </td>
+                        <td><small class="text-white-50">${transaction.createdByPhone || '-'}</small></td>
+                        <td><small class="text-white-50">${formatDateTime(transaction.createdAt)}</small></td>
+                    </tr>
+                `;
+            });
+            
+            table.innerHTML = html;
+            document.getElementById('total-records').textContent = `${transactions.length} записей`;
+            
+            // Показываем итоги только для подразделения "Общий"
+            if (currentDepartment === 'Общий') {
+                let footerHTML = '';
+                let totalIncome = 0;
+                let totalExpense = 0;
+                let totalBalance = 0;
+                
+                // Добавляем строки итогов для каждого подразделения
+                Object.keys(departmentTotals).forEach(deptId => {
+                    const dept = DEPARTMENTS.find(d => d.id === deptId);
+                    if (dept) {
+                        const income = departmentTotals[deptId].income;
+                        const expense = departmentTotals[deptId].expense;
+                        const balance = income - expense;
+                        
+                        totalIncome += income;
+                        totalExpense += expense;
+                        totalBalance += balance;
+                        
+                        footerHTML += `
+                            <tr class="department-total-row">
+                                <td colspan="5" class="text-end"><strong>${dept.name} итого:</strong></td>
+                                <td class="positive"><strong>${formatNumber(income)}</strong></td>
+                                <td class="negative"><strong>${formatNumber(expense)}</strong></td>
+                                <td class="${balance >= 0 ? 'positive' : 'negative'}"><strong>${formatNumber(balance)}</strong></td>
+                                <td colspan="3"></td>
+                            </tr>
+                        `;
+                    }
+                });
+                
+                // Добавляем общий итог
+                footerHTML += `
+                    <tr class="admin-total-row">
+                        <td colspan="5" class="text-end"><strong>ОБЩИЙ ИТОГ:</strong></td>
+                        <td class="positive"><strong>${formatNumber(totalIncome)}</strong></td>
+                        <td class="negative"><strong>${formatNumber(totalExpense)}</strong></td>
+                        <td class="${totalBalance >= 0 ? 'positive' : 'negative'}"><strong>${formatNumber(totalBalance)}</strong></td>
+                        <td colspan="3"></td>
+                    </tr>
+                `;
+                
+                footer.innerHTML = footerHTML;
+                footer.style.display = 'table-footer-group';
+            } else {
+                footer.style.display = 'none';
+            }
+        }
+
+        // Добавление прихода
+        function addIncome(e) {
+            e.preventDefault();
+            
+            if (!validateForm(e.target)) {
+                showAlert('Пожалуйста, заполните все обязательные поля корректно.', 'warning');
+                return;
+            }
+            
+            const data = awaitinitData();
+            
+            const supplierName = document.getElementById('income-supplier-name').value;
+            const supplierOrg = document.getElementById('income-supplier-org').value;
+            
+            const newTransaction = {
+                id: Date.now(),
+                type: 'income',
+                department: currentDepartment,
+                date: document.getElementById('income-date').value,
+                supplierName: supplierName,
+                supplierOrg: supplierOrg,
+                amount: parseFloat(document.getElementById('income-amount').value),
+                comment: document.getElementById('income-comment').value,
+                createdBy: currentUser.username,
+                createdAt: new Date().toISOString(),
+                lastModifiedBy: currentUser.username,
+                lastModifiedAt: new Date().toISOString()
+            };
+            
+            data.transactions.push(newTransaction);
+            saveData(STORAGE_KEYS.TRANSACTIONS, data.transactions);
+            
+            // Сохраняем поставщика в базу
+            saveSupplier(supplierName, supplierOrg);
+            
+            // Добавляем запись в аудит-лог
+            addAuditLog(`Добавлен приход: ${formatNumber(newTransaction.amount)}`, currentDepartment);
+            
+            e.target.reset();
+            document.getElementById('income-date').value = new Date().toISOString().split('T')[0];
+            
+            loadAllData();
+            showAlert('Приход успешно добавлен!', 'success');
+        }
+
+        // Добавление расхода
+        function addExpense(e) {
+            e.preventDefault();
+            
+            if (!validateForm(e.target)) {
+                showAlert('Пожалуйста, заполните все обязательные поля корректно.', 'warning');
+                return;
+            }
+            
+            const data = awaitinitData();
+            
+            const supplierName = document.getElementById('expense-supplier-name').value;
+            const supplierOrg = document.getElementById('expense-supplier-org').value;
+            
+            const newTransaction = {
+                id: Date.now(),
+                type: 'expense',
+                department: currentDepartment,
+                date: document.getElementById('expense-date').value,
+                supplierName: supplierName,
+                supplierOrg: supplierOrg,
+                amount: parseFloat(document.getElementById('expense-amount').value),
+                comment: document.getElementById('expense-comment').value,
+                createdBy: currentUser.username,
+                createdAt: new Date().toISOString(),
+                lastModifiedBy: currentUser.username,
+                lastModifiedAt: new Date().toISOString()
+            };
+            
+            data.transactions.push(newTransaction);
+            saveData(STORAGE_KEYS.TRANSACTIONS, data.transactions);
+            
+            // Сохраняем поставщика в базу
+            saveSupplier(supplierName, supplierOrg);
+            
+            // Добавляем запись в аудит-лог
+            addAuditLog(`Добавлен расход: ${formatNumber(newTransaction.amount)}`, currentDepartment);
+            
+            e.target.reset();
+            document.getElementById('expense-date').value = new Date().toISOString().split('T')[0];
+            
+            loadAllData();
+            showAlert('Расход успешно добавлен!', 'success');
+        }
+
+        // Загрузка всех данных
+        function loadAllData() {
+            const data = awaitinitData();
+            updateDepartmentDataTable();
+            updateStats(data.transactions);
+            updateAuditLog();
+            updateSuppliersTable();
+            
+            // Обновляем сводный отчет для админа
+            if (currentDepartment === 'Общий') {
+                updateAdminSummary();
+                updateAccessCodesTable();
+            }
+        }
+
+        // Обновление статистики
+        function updateStats(transactions = null) {
+            if (!transactions) {
+                const data = awaitinitData();
+                transactions = data.transactions;
+            }
+            
+            // Фильтруем транзакции текущего подразделения
+            let filteredTransactions = transactions;
+            if (currentDepartment !== 'Общий') {
+                filteredTransactions = transactions.filter(t => t.department === currentDepartment);
+            }
+            
+            const totalIncome = filteredTransactions
+                .filter(t => t.type === 'income')
+                .reduce((sum, t) => sum + t.amount, 0);
+            
+            const totalExpense = filteredTransactions
+                .filter(t => t.type === 'expense')
+                .reduce((sum, t) => sum + t.amount, 0);
+            
+            const balance = totalIncome - totalExpense;
+            
+            document.getElementById('total-income').textContent = formatNumber(totalIncome);
+            document.getElementById('total-expense').textContent = formatNumber(totalExpense);
+            document.getElementById('balance').textContent = formatNumber(balance);
+        }
+
+        // Обновление данных подразделения
+        function updateDepartmentDataTable() {
+            const table = document.getElementById('department-data-table');
+            const data = awaitinitData();
+            
+            let transactions = data.transactions;
+            
+            // Для обычных пользователей показываем только их подразделение
+            if (currentDepartment !== 'Общий') {
+                transactions = transactions.filter(t => t.department === currentDepartment);
+            }
+            
+            if (transactions.length === 0) {
+                table.innerHTML = '<tr><td colspan="7" class="text-center text-white-50">Нет данных</td></tr>';
+                return;
+            }
+            
+            // Сортируем по дате (новые сверху)
+            const sortedTransactions = transactions.sort((a, b) => new Date(b.date) - new Date(a.date));
+            
+            let html = '';
+            sortedTransactions.forEach(transaction => {
+                const canEdit = data.settings.allowEdit && 
+                               (currentDepartment === 'Общий' || transaction.department === currentDepartment);
+                
+                html += `
+                    <tr class="editable-row" onclick="${canEdit ? `editTransaction(${transaction.id})` : ''}">
+                        <td>${formatDate(transaction.date)}</td>
+                        <td>
+                            <span class="badge ${transaction.type === 'income' ? 'bg-success' : 'bg-danger'}">
+                                ${transaction.type === 'income' ? 'Приход' : 'Расход'}
+                            </span>
+                        </td>
+                        <td>${transaction.supplierName}</td>
+                        <td>${transaction.supplierOrg}</td>
+                        <td class="fw-bold ${transaction.type === 'income' ? 'positive' : 'negative'}">
+                            ${formatNumber(transaction.amount)}
+                        </td>
+                        <td>${transaction.comment || '-'}</td>
+                        <td>
+                            <div class="action-buttons">
+                                ${canEdit ? `
+                                    <button class="btn btn-sm btn-warning me-1" onclick="event.stopPropagation(); editTransaction(${transaction.id})">
+                                        <i class="fas fa-edit"></i>
+                                    </button>
+                                ` : ''}
+                                ${data.settings.allowDelete && 
+                                 (currentDepartment === 'Общий' || transaction.department === currentDepartment) ? `
+                                    <button class="btn btn-sm btn-danger" onclick="event.stopPropagation(); confirmDeleteTransaction(${transaction.id})">
+                                        <i class="fas fa-trash"></i>
+                                    </button>
+                                ` : ''}
+                            </div>
+                        </td>
+                    </tr>
+                `;
+            });
+            
+            table.innerHTML = html;
+            
+            // Сохраняем данные для фильтрации
+            currentDepartmentData = sortedTransactions;
+        }
+
+        // Выход из системы
+        function logout() {
+            showConfirmation('Вы уверены, что хотите выйти из системы?', function() {
+                addAuditLog('Выход из системы', currentDepartment);
+                currentUser = null;
+                currentDepartment = null;
+                document.getElementById('main-interface').style.display = 'none';
+                const loginModal = new bootstrap.Modal(document.getElementById('loginModal'));
+                loginModal.show();
+            });
+        }
+
+        // Вспомогательные функции
+        function formatDate(dateString) {
+            return new Date(dateString).toLocaleDateString('ru-RU');
+        }
+
+        function formatDateTime(dateString) {
+            return new Date(dateString).toLocaleString('ru-RU');
+        }
+
+        function showAlert(message, type) {
+            const alert = document.createElement('div');
+            const bgColor = type === 'success' ? 'rgba(76, 175, 80, 0.9)' : 
+                           type === 'warning' ? 'rgba(255, 152, 0, 0.9)' : 
+                           type === 'info' ? 'rgba(33, 150, 243, 0.9)' : 
+                           'rgba(244, 67, 54, 0.9)';
+            
+            alert.className = `alert alert-dismissible fade show position-fixed`;
+            alert.style.cssText = `top: 80px; right: 20px; z-index: 1050; min-width: 300px; background: ${bgColor}; color: white;`;
+            alert.innerHTML = `
+                ${message}
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="alert"></button>
+            `;
+            
+            document.body.appendChild(alert);
+            
+            setTimeout(() => {
+                if (alert.parentNode) {
+                    alert.remove();
+                }
+            }, 5000);
+        }
+
+        // Добавление записи в аудит-лог
+        function addAuditLog(action, department) {
+            const data = awaitinitData();
+            
+            const auditEntry = {
+                id: Date.now(),
+                timestamp: new Date().toISOString(),
+                user: currentUser.username,
+                action: action,
+                department: department
+            };
+            
+            data.auditLog.unshift(auditEntry);
+            
+            // Сохраняем только последние 100 записей
+            if (data.auditLog.length > 100) {
+                data.auditLog = data.auditLog.slice(0, 100);
+            }
+            
+            saveData(STORAGE_KEYS.AUDIT_LOG, data.auditLog);
+        }
+
+        // Обновление журнала аудита
+        function updateAuditLog() {
+            const table = document.getElementById('audit-log-table');
+            const data = awaitinitData();
+            
+            if (data.auditLog.length === 0) {
+                table.innerHTML = '<tr><td colspan="4" class="text-center">Нет записей</td></tr>';
+                return;
+            }
+            
+            let html = '';
+            data.auditLog.forEach(entry => {
+                html += `
+                    <tr>
+                        <td><small>${formatDateTime(entry.timestamp)}</small></td>
+                        <td>${entry.user}</td>
+                        <td>${entry.action}</td>
+                        <td><span class="department-badge">${entry.department}</span></td>
+                    </tr>
+                `;
+            });
+            
+            table.innerHTML = html;
+        }
+
+        // Обновление таблицы поставщиков
+        function updateSuppliersTable() {
+            const table = document.getElementById('suppliers-table');
+            const data = awaitinitData();
+            
+            if (data.suppliers.length === 0) {
+                table.innerHTML = '<tr><td colspan="5" class="text-center">Нет поставщиков</td></tr>';
+                return;
+            }
+            
+            // Сортируем по дате добавления (новые сверху)
+            const sortedSuppliers = data.suppliers.sort((a, b) => new Date(b.addedAt) - new Date(a.addedAt));
+            
+            let html = '';
+            sortedSuppliers.forEach(supplier => {
+                const canDelete = currentDepartment === 'Общий';
+                
+                html += `
+                    <tr>
+                        <td>${supplier.name}</td>
+                        <td>${supplier.org}</td>
+                        <td><small>${formatDate(supplier.addedAt)}</small></td>
+                        <td>
+                            <small>${supplier.addedBy}</small>
+                            <br><small class="text-white-50">${supplier.addedByDepartment}</small>
+                        </td>
+                        <td>
+                            ${canDelete ? `
+                                <button class="btn btn-sm btn-danger" onclick="deleteSupplier('${supplier.name}', '${supplier.org}')">
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                            ` : '<small class="text-white-50">Только чтение</small>'}
+                        </td>
+                    </tr>
+                `;
+            });
+            
+            table.innerHTML = html;
+        }
+
+        // Добавление поставщика
+        function addSupplier(e) {
+            e.preventDefault();
+            
+            const name = document.getElementById('new-supplier-name').value.trim();
+            const org = document.getElementById('new-supplier-org').value.trim();
+            
+            if (!name || !org) {
+                showAlert('Пожалуйста, заполните все поля.', 'warning');
+                return;
+            }
+            
+            saveSupplier(name, org);
+            
+            e.target.reset();
+            updateSuppliersTable();
+            showAlert('Поставщик успешно добавлен!', 'success');
+        }
+
+        // Удаление поставщика
+        function deleteSupplier(name, org) {
+            showConfirmation(`Удалить поставщика "${name}" (${org})?`, function() {
+                const data = awaitinitData();
+                data.suppliers = data.suppliers.filter(s => !(s.name === name && s.org === org));
+                saveData(STORAGE_KEYS.SUPPLIERS, data.suppliers);
+                
+                addAuditLog(`Удален поставщик: ${name} (${org})`, 'Общий');
+                updateSuppliersTable();
+                showAlert('Поставщик удален!', 'success');
+            });
+        }
+
+        // Загрузка прав доступа
+        function loadPermissions() {
+            const data = awaitinitData();
+            document.getElementById('allow-edit').checked = data.settings.allowEdit;
+            document.getElementById('allow-delete').checked = data.settings.allowDelete;
+        }
+
+        // Сохранение прав доступа
+        function savePermissions() {
+            const data = awaitinitData();
+            data.settings.allowEdit = document.getElementById('allow-edit').checked;
+            data.settings.allowDelete = document.getElementById('allow-delete').checked;
+            saveData(STORAGE_KEYS.SETTINGS, data.settings);
+            
+            addAuditLog('Обновлены настройки прав доступа', 'Общий');
+            showAlert('Настройки сохранены!', 'success');
+        }
+
+        // Применение фильтров
+        function applyFilters() {
+            const typeFilter = document.getElementById('filter-type').value;
+            const supplierFilter = document.getElementById('filter-supplier').value.toLowerCase();
+            const minAmount = parseFloat(document.getElementById('filter-min-amount').value) || 0;
+            const maxAmount = parseFloat(document.getElementById('filter-max-amount').value) || Infinity;
+            
+            let filteredData = currentReportData.filter(transaction => {
+                // Фильтр по типу
+                if (typeFilter !== 'all' && transaction.type !== typeFilter) {
+                    return false;
+                }
+                
+                // Фильтр по поставщику
+                if (supplierFilter && 
+                    !transaction.supplierName.toLowerCase().includes(supplierFilter) &&
+                    !transaction.supplierOrg.toLowerCase().includes(supplierFilter)) {
+                    return false;
+                }
+                
+                // Фильтр по сумме
+                if (transaction.amount < minAmount || transaction.amount > maxAmount) {
+                    return false;
+                }
+                
+                return true;
+            });
+            
+            updateDetailedReport(filteredData);
+        }
+
+        // Переключение панели фильтров
+        function toggleFilters() {
+            const filtersPanel = document.getElementById('filters-panel');
+            filtersPanel.style.display = filtersPanel.style.display === 'none' ? 'block' : 'none';
+        }
+
+        // Экспорт в Excel (упрощенная версия)
+        function exportToExcel() {
+            showLoading();
+            
+            setTimeout(() => {
+                // Создаем CSV вместо Excel для простоты
+                let csv = 'Дата,Подразделение,Тип,Поставщик,Организация,Сумма,Комментарий,Пользователь\n';
+                
+                currentReportData.forEach(transaction => {
+                    csv += `"${formatDate(transaction.date)}","${transaction.department}","${transaction.type === 'income' ? 'Приход' : 'Расход'}","${transaction.supplierName}","${transaction.supplierOrg}","${transaction.amount}","${transaction.comment || ''}","${transaction.createdBy}"\n`;
+                });
+                
+                const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+                const link = document.createElement('a');
+                const url = URL.createObjectURL(blob);
+                
+                link.setAttribute('href', url);
+                link.setAttribute('download', `отчет_${new Date().toISOString().split('T')[0]}.csv`);
+                link.style.visibility = 'hidden';
+                
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                
+                hideLoading();
+                showAlert('Отчет экспортирован!', 'success');
+            }, 500);
+        }
+
+        // Редактирование транзакции
+        function editTransaction(id) {
+            const data = awaitinitData();
+            const transaction = data.transactions.find(t => t.id === id);
+            
+            if (!transaction) {
+                showAlert('Транзакция не найдена!', 'error');
+                return;
+            }
+            
+            // Заполняем форму редактирования
+            document.getElementById('edit-transaction-id').value = transaction.id;
+            document.getElementById('edit-transaction-type').value = transaction.type;
+            document.getElementById('edit-transaction-date').value = transaction.date;
+            document.getElementById('edit-transaction-supplier-name').value = transaction.supplierName;
+            document.getElementById('edit-transaction-supplier-org').value = transaction.supplierOrg;
+            document.getElementById('edit-transaction-amount').value = transaction.amount;
+            document.getElementById('edit-transaction-comment').value = transaction.comment || '';
+            
+            // Показываем информацию об аудите
+            document.getElementById('edit-audit-info').innerHTML = `
+                <small class="text-muted">
+                    Создано: ${transaction.createdBy} (${formatDateTime(transaction.createdAt)})<br>
+                    Последнее изменение: ${transaction.lastModifiedBy} (${formatDateTime(transaction.lastModifiedAt)})
+                </small>
+            `;
+            
+            // Показываем/скрываем кнопку удаления
+            const canDelete = data.settings.allowDelete && 
+                             (currentDepartment === 'Общий' || transaction.department === currentDepartment);
+            document.getElementById('delete-btn').style.display = canDelete ? 'inline-block' : 'none';
+            
+            const modal = new bootstrap.Modal(document.getElementById('editTransactionModal'));
+            modal.show();
+        }
+
+        // Сохранение изменений транзакции
+        function saveTransactionChanges() {
+            const id = parseInt(document.getElementById('edit-transaction-id').value);
+            const data = awaitinitData();
+            const transactionIndex = data.transactions.findIndex(t => t.id === id);
+            
+            if (transactionIndex === -1) {
+                showAlert('Транзакция не найдена!', 'error');
+                return;
+            }
+            
+            const updatedTransaction = {
+                ...data.transactions[transactionIndex],
+                type: document.getElementById('edit-transaction-type').value,
+                date: document.getElementById('edit-transaction-date').value,
+                supplierName: document.getElementById('edit-transaction-supplier-name').value,
+                supplierOrg: document.getElementById('edit-transaction-supplier-org').value,
+                amount: parseFloat(document.getElementById('edit-transaction-amount').value),
+                comment: document.getElementById('edit-transaction-comment').value,
+                lastModifiedBy: currentUser.username,
+                lastModifiedAt: new Date().toISOString()
+            };
+            
+            data.transactions[transactionIndex] = updatedTransaction;
+            saveData(STORAGE_KEYS.TRANSACTIONS, data.transactions);
+            
+            // Сохраняем поставщика в базу
+            saveSupplier(updatedTransaction.supplierName, updatedTransaction.supplierOrg);
+            
+            // Добавляем запись в аудит-лог
+            addAuditLog(`Изменена операция: ${formatNumber(updatedTransaction.amount)}`, updatedTransaction.department);
+            
+            const modal = bootstrap.Modal.getInstance(document.getElementById('editTransactionModal'));
+            modal.hide();
+            
+            loadAllData();
+            showAlert('Изменения сохранены!', 'success');
+        }
+
+        // Подтверждение удаления транзакции
+        function confirmDeleteTransaction(id = null) {
+            if (!id) {
+                id = parseInt(document.getElementById('edit-transaction-id').value);
+            }
+            
+            const data = awaitinitData();
+            const transaction = data.transactions.find(t => t.id === id);
+            
+            if (!transaction) {
+                showAlert('Транзакция не найдена!', 'error');
+                return;
+            }
+            
+            showConfirmation(`Удалить операцию от ${formatDate(transaction.date)} на сумму ${formatNumber(transaction.amount)}?`, function() {
+                deleteTransaction(id);
+            });
+        }
+
+        // Удаление транзакции
+        function deleteTransaction(id) {
+            const data = awaitinitData();
+            const transactionIndex = data.transactions.findIndex(t => t.id === id);
+            
+            if (transactionIndex === -1) {
+                showAlert('Транзакция не найдена!', 'error');
+                return;
+            }
+            
+            const deletedTransaction = data.transactions[transactionIndex];
+            data.transactions.splice(transactionIndex, 1);
+            saveData(STORAGE_KEYS.TRANSACTIONS, data.transactions);
+            
+            // Добавляем запись в аудит-лог
+            addAuditLog(`Удалена операция: ${formatNumber(deletedTransaction.amount)}`, deletedTransaction.department);
+            
+            const modal = bootstrap.Modal.getInstance(document.getElementById('editTransactionModal'));
+            if (modal) modal.hide();
+            
+            loadAllData();
+            showAlert('Операция удалена!', 'success');
+        }
+
+        // Обновление сводного отчета для администратора
+        function updateAdminSummary() {
+            const table = document.getElementById('admin-summary-table');
+            const data = awaitinitData();
+            
+            let html = '';
+            let totalIncome = 0;
+            let totalExpense = 0;
+            let totalBalance = 0;
+            
+            DEPARTMENTS.forEach(dept => {
+                if (dept.id !== 'Общий') {
+                    const deptTransactions = data.transactions.filter(t => t.department === dept.id);
+                    const income = deptTransactions
+                        .filter(t => t.type === 'income')
+                        .reduce((sum, t) => sum + t.amount, 0);
+                    const expense = deptTransactions
+                        .filter(t => t.type === 'expense')
+                        .reduce((sum, t) => sum + t.amount, 0);
+                    const balance = income - expense;
+                    
+                    totalIncome += income;
+                    totalExpense += expense;
+                    totalBalance += balance;
+                    
+                    html += `
+                        <tr>
+                            <td><strong>${dept.name}</strong></td>
+                            <td class="positive">${formatNumber(income)}</td>
+                            <td class="negative">${formatNumber(expense)}</td>
+                            <td class="${balance >= 0 ? 'positive' : 'negative'}">${formatNumber(balance)}</td>
+                            <td>
+                                <button class="btn btn-sm btn-info" onclick="viewDepartmentData('${dept.id}')">
+                                    <i class="fas fa-eye"></i>
+                                </button>
+                            </td>
+                        </tr>
+                    `;
+                }
+            });
+            
+            // Добавляем общий итог
+            html += `
+                <tr class="admin-total-row">
+                    <td><strong>ОБЩИЙ ИТОГ</strong></td>
+                    <td class="positive"><strong>${formatNumber(totalIncome)}</strong></td>
+                    <td class="negative"><strong>${formatNumber(totalExpense)}</strong></td>
+                    <td class="${totalBalance >= 0 ? 'positive' : 'negative'}"><strong>${formatNumber(totalBalance)}</strong></td>
+                    <td></td>
+                </tr>
+            `;
+            
+            table.innerHTML = html;
+        }
+
+        // Просмотр данных подразделения (для администратора)
+        function viewDepartmentData(departmentId) {
+            // Переключаемся на вкладку данных подразделения
+            const departmentTab = new bootstrap.Tab(document.getElementById('department-tab'));
+            departmentTab.show();
+            
+            // Устанавливаем фильтр для выбранного подразделения
+            currentDepartmentData = awaitinitData().transactions.filter(t => t.department === departmentId);
+            updateDepartmentDataTable();
+            
+            showAlert(`Показаны данные подразделения ${departmentId}`, 'info');
+        }
+
+        // Фильтрация данных подразделения
+        function filterDepartmentData() {
+            const searchTerm = document.getElementById('department-search').value.toLowerCase();
+            
+            if (!searchTerm) {
+                updateDepartmentDataTable();
+                return;
+            }
+            
+            const filteredData = currentDepartmentData.filter(transaction => 
+                transaction.supplierName.toLowerCase().includes(searchTerm) ||
+                transaction.supplierOrg.toLowerCase().includes(searchTerm) ||
+                (transaction.comment && transaction.comment.toLowerCase().includes(searchTerm))
+            );
+            
+            const table = document.getElementById('department-data-table');
+            
+            if (filteredData.length === 0) {
+                table.innerHTML = '<tr><td colspan="7" class="text-center text-white-50">Нет данных по вашему запросу</td></tr>';
+                return;
+            }
+            
+            let html = '';
+            const data = awaitinitData();
+            
+            filteredData.forEach(transaction => {
+                const canEdit = data.settings.allowEdit && 
+                               (currentDepartment === 'Общий' || transaction.department === currentDepartment);
+                
+                html += `
+                    <tr class="editable-row" onclick="${canEdit ? `editTransaction(${transaction.id})` : ''}">
+                        <td>${formatDate(transaction.date)}</td>
+                        <td>
+                            <span class="badge ${transaction.type === 'income' ? 'bg-success' : 'bg-danger'}">
+                                ${transaction.type === 'income' ? 'Приход' : 'Расход'}
+                            </span>
+                        </td>
+                        <td>${transaction.supplierName}</td>
+                        <td>${transaction.supplierOrg}</td>
+                        <td class="fw-bold ${transaction.type === 'income' ? 'positive' : 'negative'}">
+                            ${formatNumber(transaction.amount)}
+                        </td>
+                        <td>${transaction.comment || '-'}</td>
+                        <td>
+                            <div class="action-buttons">
+                                ${canEdit ? `
+                                    <button class="btn btn-sm btn-warning me-1" onclick="event.stopPropagation(); editTransaction(${transaction.id})">
+                                        <i class="fas fa-edit"></i>
+                                    </button>
+                                ` : ''}
+                                ${data.settings.allowDelete && 
+                                 (currentDepartment === 'Общий' || transaction.department === currentDepartment) ? `
+                                    <button class="btn btn-sm btn-danger" onclick="event.stopPropagation(); confirmDeleteTransaction(${transaction.id})">
+                                        <i class="fas fa-trash"></i>
+                                    </button>
+                                ` : ''}
+                            </div>
+                        </td>
+                    </tr>
+                `;
+            });
+            
+            table.innerHTML = html;
+        }
+
+        // Фильтрация данных отчета
+        function filterReportData() {
+            const searchTerm = document.getElementById('report-search').value.toLowerCase();
+            
+            if (!searchTerm) {
+                updateDetailedReport(currentReportData);
+                return;
+            }
+            
+            const filteredData = currentReportData.filter(transaction => 
+                transaction.supplierName.toLowerCase().includes(searchTerm) ||
+                transaction.supplierOrg.toLowerCase().includes(searchTerm) ||
+                (transaction.comment && transaction.comment.toLowerCase().includes(searchTerm)) ||
+                transaction.department.toLowerCase().includes(searchTerm) ||
+                transaction.createdBy.toLowerCase().includes(searchTerm)
+            );
+            
+            updateDetailedReport(filteredData);
+        }
+    </script>
+</body>
+</html>
